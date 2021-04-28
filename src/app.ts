@@ -1,14 +1,15 @@
-import { ImageComponent } from './components/image.js';
-import { PageComponent } from './components/page.js';
+import { ImageComponent } from './components/page/item/image.js';
+import { PageComponent } from './components/page/page.js';
+
 class App{
     private readonly page: PageComponent
-    private readonly image: ImageComponent
     //추가할 최상위의 루트 요소를 받아옴
     constructor(appRoot: HTMLElement){
         this.page = new PageComponent();//새로운페이지 컴포넌트를 만들어
         this.page.attachTo(appRoot);//appRoot에 붙여줘
-        this.image = new ImageComponent();
-        this.image.attachTo(appRoot);
+        
+        const image = new ImageComponent('Image Title', 'https://picsum.photos/200/300');
+        image.attachTo(appRoot,'beforeend');
     }
 }
 
