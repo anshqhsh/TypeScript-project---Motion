@@ -4,7 +4,7 @@ export class ImageComponent extends BaseComponent<HTMLElement>{
     constructor(title: string, url: string){
         super(`<section class="image">
                 <div class="image__holder"><img class="image__thumbnail"></div>
-                <p class="image__title"></p>
+                <h2 class="image__title"></h2>
                 </section>`);
         
         //innerHTML에 데이터를 전달하지 않고 따로 필요한 데이터만 업데이트를 시켜준다.
