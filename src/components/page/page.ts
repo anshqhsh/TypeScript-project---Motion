@@ -5,18 +5,23 @@ export interface Composable {
     addChild(child: Component): void;
 }
 type OnCloseListener = () => void; // 닫힌상태만 알려주는 콜백함수
+type DragState = 'start' | 'stop' | 'enter' | 'leave';
+type OnDrageStateListener<T extends Component> = (target: T, state: DragState) => void;
 
 //규격사항 : 섹션을 감싸는 컨테이너  
 interface SectionContainer extends Component, Composable {
     setOnCloseListener(listener: OnCloseListener): void
-}
+    setOnDragStateListener(listener: OnDrageStateListener<SectionContainer>): void;
+};
+
 
 type SectionContainerConstructor = {
     new(): SectionContainer//아무것도 전달 받지 않는 생성자 생성자를 받는 어떤 클래스도 받는다 생성자가 호출 받으면 
-}
+};
 
-export class PageItemComponent extends BaseComponent<HTMLElement> implements SectionContainer{
+export class PageItemComponent extends BaseComponent<HTMLElement> implements SectionContainer {
     private closeListener?: OnCloseListener; //외부로부터 전달받은 콜백함수를 저장하고 있을 리스너
+    private dragStateListner?: OnDrageStateListener<PageItemComponent>;
     constructor(){
         super(`<li draggable="true" class="page-item">
                 <section class="page-item__body"></section>
@@ -34,14 +39,29 @@ export class PageItemComponent extends BaseComponent<HTMLElement> implements Sec
             this.element.addEventListener('dragend', (event: DragEvent) => {
                 this.onDragEnd(event);
             });
+            this.element.addEventListener('dragenter', (event: DragEvent) => {
+                this.onDragEnter(event);
+            });
+            this.element.addEventListener('dragleave', (event: DragEvent) => {
+                this.onDragLeave(event);
+            });
     }
     
-    onDragStart(event: DragEvent){
-        console.log('dragstart', event);
+    onDragStart(_: DragEvent){
+        this.notifyDragObservers('start');
     }
-
-    onDragEnd(event: DragEvent){
-        console.log('dragend', event);
+    onDragEnd(_: DragEvent){
+        this.notifyDragObservers('stop');
+    }
+    onDragEnter(_: DragEvent){
+        this.notifyDragObservers('enter');
+    }
+    onDragLeave(_: DragEvent){
+        this.notifyDragObservers('leave');
+    }
+    //등록된 콜백 함수를 호출
+    notifyDragObservers(state: DragState){
+        this.dragStateListner && this.dragStateListner(this, state); //this에 리스너가 있으면 리스너를 호출 타켓은 이컴포넌트 state를 전달 
     }
 
     //외부에서 전달해온 값에 따라서 다양하게 저장
@@ -52,7 +72,11 @@ export class PageItemComponent extends BaseComponent<HTMLElement> implements Sec
     }
     setOnCloseListener(listener: OnCloseListener) {
         this.closeListener = listener;
-    } 
+    }
+    
+    setOnDragStateListener(listener: OnDrageStateListener<PageItemComponent>) {
+        this.dragStateListner = listener;
+    }
 }
 
 export class PageComponent extends BaseComponent<HTMLUListElement> implements Composable{
@@ -86,6 +110,10 @@ export class PageComponent extends BaseComponent<HTMLUListElement> implements Co
         item.attachTo(this.element, 'beforeend');
         item.setOnCloseListener(() => {
             item.removeFrom(this.element);
+        });
+        item.setOnDragStateListener((target: SectionContainer, state: DragState) => {
+            console.log(target, state);
+            
         })
     }
 }
