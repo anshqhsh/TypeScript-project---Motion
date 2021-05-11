@@ -14,6 +14,7 @@ interface SectionContainer extends Component, Composable {
     setOnDragStateListener(listener: OnDrageStateListener<SectionContainer>): void;
     muteChildren(state: 'mute' | 'unmute'): void;
     getBoundingRect() : DOMRect;
+    onDropped(): void;
 };
 
 
@@ -52,21 +53,28 @@ export class PageItemComponent extends BaseComponent<HTMLElement> implements Sec
     
     onDragStart(_: DragEvent){
         this.notifyDragObservers('start');
+        this.element.classList.add('lifted');//클래스를 추가 
     }
     onDragEnd(_: DragEvent){
         this.notifyDragObservers('stop');
+        this.element.classList.remove('lifted');
     }
     onDragEnter(_: DragEvent){
         this.notifyDragObservers('enter');
+        this.element.classList.add('drop-area');
     }
     onDragLeave(_: DragEvent){
         this.notifyDragObservers('leave');
+        this.element.classList.remove('lifted');
     }
     //등록된 콜백 함수를 호출
     notifyDragObservers(state: DragState){
         this.dragStateListener && this.dragStateListener(this, state); //this에 리스너가 있으면 리스너를 호출 타켓은 이컴포넌트 state를 전달 
     }
 
+    onDropped(){
+        this.element.classList.remove('drop-area')
+    }
     //외부에서 전달해온 값에 따라서 다양하게 저장
     addChild(child: Component) {
         //class name이 page-item__body 라인요소를 HTMLELEMENT로 캐스팅
