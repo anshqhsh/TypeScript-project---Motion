@@ -12,7 +12,10 @@ type OnDrageStateListener<T extends Component> = (target: T, state: DragState) =
 interface SectionContainer extends Component, Composable {
     setOnCloseListener(listener: OnCloseListener): void
     setOnDragStateListener(listener: OnDrageStateListener<SectionContainer>): void;
+    muteChildren(state: 'mute' | 'unmute'): void;
+    getBoundingRect() : DOMRect;
 };
+
 
 
 type SectionContainerConstructor = {
@@ -21,7 +24,7 @@ type SectionContainerConstructor = {
 
 export class PageItemComponent extends BaseComponent<HTMLElement> implements SectionContainer {
     private closeListener?: OnCloseListener; //외부로부터 전달받은 콜백함수를 저장하고 있을 리스너
-    private dragStateListner?: OnDrageStateListener<PageItemComponent>;
+    private dragStateListener?: OnDrageStateListener<PageItemComponent>;
     constructor(){
         super(`<li draggable="true" class="page-item">
                 <section class="page-item__body"></section>
@@ -61,7 +64,7 @@ export class PageItemComponent extends BaseComponent<HTMLElement> implements Sec
     }
     //등록된 콜백 함수를 호출
     notifyDragObservers(state: DragState){
-        this.dragStateListner && this.dragStateListner(this, state); //this에 리스너가 있으면 리스너를 호출 타켓은 이컴포넌트 state를 전달 
+        this.dragStateListener && this.dragStateListener(this, state); //this에 리스너가 있으면 리스너를 호출 타켓은 이컴포넌트 state를 전달 
     }
 
     //외부에서 전달해온 값에 따라서 다양하게 저장
@@ -75,11 +78,24 @@ export class PageItemComponent extends BaseComponent<HTMLElement> implements Sec
     }
     
     setOnDragStateListener(listener: OnDrageStateListener<PageItemComponent>) {
-        this.dragStateListner = listener;
+        this.dragStateListener = listener;
+    }
+    muteChildren(state: 'mute' | 'unmute') {
+        if (state === 'mute') {
+            this.element.classList.add('mute-children');
+        } else {
+            this.element.classList.remove('mute-children');
+        }
+    }
+    getBoundingRect(): DOMRect{
+        return this.element.getBoundingClientRect();
     }
 }
 
 export class PageComponent extends BaseComponent<HTMLUListElement> implements Composable{
+    private children = new Set<SectionContainer>(); //중복된 데이터를 가질수 없는 자료 구조 모든 자식의 sectioncontainer를 가짐  
+    private dropTarget?: SectionContainer;//drag drop 저장 = sectioncontainer가 drag&drop
+    private dragTarget?: SectionContainer;//drag대상
     constructor(private pageItemConstructor: SectionContainerConstructor){
         super('<ul class="page"></ul>');
     
@@ -96,13 +112,22 @@ export class PageComponent extends BaseComponent<HTMLUListElement> implements Co
         console.log('onDragOver');
         
     }
+    //위치를 바꿔주는 곳 
     onDrop(event: DragEvent){
         event.preventDefault();
         console.log('onDrop');
-        
+        if(!this.dropTarget){
+            return
+        }
+        if(this.dragTarget && this.dragTarget !== this.dropTarget){
+            const dropY = event.clientY;
+            const srcElement = this.dragTarget.getBoundingRect();
+            this.dragTarget.removeFrom(this.element);
+            this.dropTarget.attach(this.dragTarget, dropY < srcElement.y? 'beforebegin': 'afterend');
+        }
     }
-//인자로 전달받은 부모 컨테이너에 Page를 추가 HTML에 어떤 것도 받을 수 있고
-//이 함수를 통해서 parent요소에 전달한 값을 등록한다.
+    //인자로 전달받은 부모 컨테이너에 Page를 추가 HTML에 어떤 것도 받을 수 있고
+    //이 함수를 통해서 parent요소에 전달한 값을 등록한다.
     //전달받은 컴포넌트를 PAGEITEMCOMPONENT에 담는다
     addChild(section: Component) {
         const item = new this.pageItemConstructor(); //외부에서 전달받아서 만듦
@@ -110,10 +135,38 @@ export class PageComponent extends BaseComponent<HTMLUListElement> implements Co
         item.attachTo(this.element, 'beforeend');
         item.setOnCloseListener(() => {
             item.removeFrom(this.element);
+            this.children.delete(item);
         });
+        this.children.add(item);
+        //페이지 아이템을 만들때마다 리스너를 등록 해서 출력 
         item.setOnDragStateListener((target: SectionContainer, state: DragState) => {
-            console.log(target, state);
+            switch(state) {
+                case 'start' :
+                    this.dragTarget = target;
+                    this.updateSections('mute');//드래그 시작 하면 포인터를 mute
+                    break;
+                case 'stop' :
+                    this.dragTarget = undefined;
+                    this.updateSections('unmute')
+                    break;
+                case 'enter' :
+                    this.dropTarget = target;
+                    console.log('enter', target);
+                    break;
+                case 'leave' : 
+                    console.log('leave', target);
+                    this.dropTarget = target;
+                    break;
+                    default: 
+                        throw new Error(`unsupported state: ${state}`);//state에 대해 에러발생에 따른 메세지 출력
+                }
             
         })
+    }
+
+    private updateSections(state: 'mute' | 'unmute'){
+        this.children.forEach((Selection: SectionContainer) => {
+            Selection.muteChildren(state);
+        });//children을 돌면서 해당하는 값을 업데이트 
     }
 }
